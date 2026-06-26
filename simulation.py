@@ -52,21 +52,31 @@ def match_probabilities(elo_a: float, elo_b: float, trials: int = 50_000) -> dic
     """Monte Carlo win/draw/loss probabilities + xG + most likely scoreline."""
     xg_a, xg_b = expected_goals(elo_a, elo_b)
     win_a = draw = win_b = 0
-    score_freq: dict[str, int] = {}
+    # Track scorelines per outcome so the "most likely score" can reflect the
+    # favourite. The unconditional modal score is ~1-1 across a wide band of
+    # realistic xG (both 1-2 goals), since that's the joint mode of two
+    # independent Poissons — it hides which side is actually ahead.
+    score_freq: dict[str, dict[str, int]] = {"a": {}, "draw": {}, "b": {}}
 
     for _ in range(trials):
         ga = poisson_sample(xg_a)
         gb = poisson_sample(xg_b)
         key = f"{ga}-{gb}"
-        score_freq[key] = score_freq.get(key, 0) + 1
         if ga > gb:
             win_a += 1
+            bucket = score_freq["a"]
         elif ga < gb:
             win_b += 1
+            bucket = score_freq["b"]
         else:
             draw += 1
+            bucket = score_freq["draw"]
+        bucket[key] = bucket.get(key, 0) + 1
 
-    most_likely = max(score_freq.items(), key=lambda kv: kv[1])[0] if score_freq else "1-1"
+    # Most likely scoreline *within the most likely outcome*.
+    outcome = max(("a", win_a), ("draw", draw), ("b", win_b), key=lambda kv: kv[1])[0]
+    bucket = score_freq[outcome]
+    most_likely = max(bucket.items(), key=lambda kv: kv[1])[0] if bucket else "1-1"
 
     return {
         "p_win_a": win_a / trials,
@@ -79,6 +89,61 @@ def match_probabilities(elo_a: float, elo_b: float, trials: int = 50_000) -> dic
 
 
 # ---------- Tournament ----------
+
+# Fixed Round-of-32 bracket template (faithful to the real World Cup format,
+# without FIFA's full third-place lookup table). Each entry is one R32 match as
+# (slot_a, slot_b); slots are filled in after the group stage. Codes:
+#   ("W", group) -> winner of that group
+#   ("R", group) -> runner-up of that group
+#   ("T", i)     -> the i-th best third-place team (0 = best)
+# Matches are listed in bracket order, so consecutive matches feed the same
+# Round-of-16 tie, those feed the same quarter-final, and so on.
+#
+# Properties that mirror the real draw:
+#   * No group winner can meet another group winner in the Round of 32.
+#   * Each group's winner and runner-up sit in opposite halves of the bracket,
+#     so two teams from the same group can only meet again in the final.
+R32_BRACKET: list[tuple[tuple, tuple]] = [
+    # --- Top half ---
+    (("W", "A"), ("T", 0)),
+    (("R", "C"), ("R", "D")),
+    (("W", "E"), ("T", 1)),
+    (("W", "G"), ("R", "H")),
+    (("W", "B"), ("T", 2)),
+    (("R", "F"), ("R", "L")),
+    (("W", "I"), ("T", 3)),
+    (("W", "K"), ("R", "J")),
+    # --- Bottom half ---
+    (("W", "C"), ("T", 4)),
+    (("R", "A"), ("R", "B")),
+    (("W", "F"), ("T", 5)),
+    (("W", "H"), ("R", "G")),
+    (("W", "D"), ("T", 6)),
+    (("R", "E"), ("R", "I")),
+    (("W", "J"), ("T", 7)),
+    (("W", "L"), ("R", "K")),
+]
+
+# Group whose winner occupies the other side of each ("T", i) slot above, used
+# to keep a third-place team from being drawn against its own group's winner.
+_TSLOT_WINNER_GROUP = {0: "A", 1: "E", 2: "B", 3: "I", 4: "C", 5: "F", 6: "D", 7: "L"}
+
+
+def _assign_thirds(thirds: list[WCTeam]) -> list[WCTeam]:
+    """Place the 8 best third-place teams into the 8 ("T", i) slots, avoiding
+    (where possible) a third-place team facing its own group's winner."""
+    remaining = list(range(len(thirds)))
+    assigned: list[WCTeam] = []
+    for i in range(len(thirds)):
+        winner_group = _TSLOT_WINNER_GROUP[i]
+        pick = next(
+            (ti for ti in remaining if thirds[ti].group != winner_group),
+            remaining[0],
+        )
+        assigned.append(thirds[pick])
+        remaining.remove(pick)
+    return assigned
+
 
 class _Standing:
     __slots__ = ("team", "elo", "points", "gf", "ga")
@@ -148,26 +213,40 @@ def run_simulations(ratings: dict[str, float], num_simulations: int = NUM_SIMULA
     for _ in range(num_simulations):
         group_results = [_simulate_group(groups_index[g], ratings) for g in GROUPS]
 
+        winners_by_group: dict[str, WCTeam] = {}
+        runners_by_group: dict[str, WCTeam] = {}
         third_placers: list[_Standing] = []
-        advancers: list[WCTeam] = []
 
-        for standings in group_results:
+        for g, standings in zip(GROUPS, group_results):
             winner, second, third = standings[0], standings[1], standings[2]
             result["group_wins"][winner.team.name] += 1
             result["group_advances"][winner.team.name] += 1
             result["group_advances"][second.team.name] += 1
-            advancers.append(winner.team)
-            advancers.append(second.team)
+            winners_by_group[g] = winner.team
+            runners_by_group[g] = second.team
             third_placers.append(third)
 
         # Best 8 third-place teams complete the 32-team knockout bracket.
         third_placers.sort(key=lambda s: (s.points, s.gd, s.gf), reverse=True)
-        for s in third_placers[:8]:
+        best_thirds = third_placers[:8]
+        for s in best_thirds:
             result["group_advances"][s.team.name] += 1
-            advancers.append(s.team)
+        thirds = _assign_thirds([s.team for s in best_thirds])
 
-        pool = advancers[:]
-        random.shuffle(pool)
+        # Fill the fixed bracket template instead of a random draw, so that
+        # finishing position and seeding protection actually shape the path.
+        def resolve(slot: tuple) -> WCTeam:
+            kind, key = slot
+            if kind == "W":
+                return winners_by_group[key]
+            if kind == "R":
+                return runners_by_group[key]
+            return thirds[key]  # ("T", i)
+
+        pool: list[WCTeam] = []
+        for slot_a, slot_b in R32_BRACKET:
+            pool.append(resolve(slot_a))
+            pool.append(resolve(slot_b))
 
         def knockout_round(teams: list[WCTeam]) -> list[WCTeam]:
             winners: list[WCTeam] = []

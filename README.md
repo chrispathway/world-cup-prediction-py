@@ -29,7 +29,20 @@ python oracle.py --sims 2000     # fewer simulations = faster, a bit noisier
 
 On first run it downloads the historical results dataset and caches it locally
 (`.cache_results.csv`); later runs are offline and instant to load. Delete that
-file to refresh the data.
+file to refresh the data. The dataset is live — now that the tournament is under
+way it already includes played 2026 World Cup matches, which feed straight into
+the Elo ratings (fixtures not yet played carry no score and are ignored).
+
+## Teams & groups
+
+The 48 teams and their groups follow the **official FIFA final draw** held on
+5 December 2025 in Washington, D.C.
+
+| | | | |
+|---|---|---|---|
+| **A** Mexico · South Africa · South Korea · Czech Republic | **B** Canada · Bosnia & Herz. · Qatar · Switzerland | **C** Brazil · Morocco · Haiti · Scotland | **D** USA · Paraguay · Australia · Turkey |
+| **E** Germany · Curaçao · Ivory Coast · Ecuador | **F** Netherlands · Japan · Sweden · Tunisia | **G** Belgium · Egypt · Iran · New Zealand | **H** Spain · Cape Verde · Saudi Arabia · Uruguay |
+| **I** France · Senegal · Iraq · Norway | **J** Argentina · Algeria · Austria · Jordan | **K** Portugal · DR Congo · Uzbekistan · Colombia | **L** England · Croatia · Ghana · Panama |
 
 ## Using the prompt
 
@@ -60,8 +73,13 @@ Team names are matched loosely — `Brazil`, `BRA`, or `bra` all work.
   ~2.5 total expected goals.
 - **Match outcome:** each side's goals are drawn from a Poisson distribution.
 - **Tournament:** 12 groups of 4 play round-robin; the top two of each group
-  plus the eight best third-place teams advance to a 32-team knockout bracket;
-  knockout ties are decided by a lightly Elo-weighted penalty shootout. Repeat
-  10,000 times and count how often each team reaches each stage.
+  plus the eight best third-place teams advance to a 32-team knockout bracket.
+  The bracket uses a **fixed template** that follows the real format — group
+  winners are protected from each other in the Round of 32, and a group's winner
+  and runner-up sit in opposite halves so they can only meet again in the final
+  — rather than a random draw, so finishing position actually shapes a team's
+  path. (FIFA's exact third-place lookup table is approximated.) Knockout ties
+  are decided by a lightly Elo-weighted penalty shootout. Repeat 10,000 times
+  and count how often each team reaches each stage.
 
 > Predictions are a probabilistic model for entertainment, not betting advice.
