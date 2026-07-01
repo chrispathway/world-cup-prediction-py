@@ -150,17 +150,6 @@ prediction.
   Knockout ties are decided by a lightly strength-weighted shootout. Repeat
   10,000 times and count how often each team reaches each stage.
 
-## Teams & groups
-
-The 48 teams and their groups follow the **official FIFA final draw** held on
-5 December 2025 in Washington, D.C.
-
-| | | | |
-|---|---|---|---|
-| **A** Mexico · South Africa · South Korea · Czech Republic | **B** Canada · Bosnia & Herz. · Qatar · Switzerland | **C** Brazil · Morocco · Haiti · Scotland | **D** USA · Paraguay · Australia · Turkey |
-| **E** Germany · Curaçao · Ivory Coast · Ecuador | **F** Netherlands · Japan · Sweden · Tunisia | **G** Belgium · Egypt · Iran · New Zealand | **H** Spain · Cape Verde · Saudi Arabia · Uruguay |
-| **I** France · Senegal · Iraq · Norway | **J** Argentina · Algeria · Austria · Jordan | **K** Portugal · DR Congo · Uzbekistan · Colombia | **L** England · Croatia · Ghana · Panama |
-
 ## Using the prompt
 
 ```
@@ -183,4 +172,3 @@ Team names are matched loosely — `Brazil`, `BRA`, or `bra` all work.
 | `oracle.py` | The CLI — wires it together and renders the tables / prompt. |
 | `evaluate_2026.py` | Out-of-sample backtest against played 2026 matches + Round-of-16 predictions. |
 
-> Predictions are a probabilistic model for entertainment, not betting advice.
