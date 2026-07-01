@@ -1,109 +1,56 @@
-"""Poisson match model + Monte Carlo tournament simulation.
+"""Match sampling + Monte Carlo tournament simulation, driven by Dixon-Coles.
 
-Ported from the original TypeScript. Elo ratings drive an expected-goals (xG)
-model; goals are drawn from a Poisson distribution; the full 48-team tournament
-is simulated thousands of times to estimate each team's odds at every stage.
+Every fixture's goals come from the fitted Dixon-Coles model (see
+dixon_coles.py): a scoreline is drawn from the joint distribution of the two
+teams' goals, which preserves the draw / low-score dependence that plain
+independent Poissons miss. World Cup matches are simulated on neutral ground,
+so no side gets a home-advantage boost.
 """
 
-import math
-import random
+from __future__ import annotations
+
+import numpy as np
 
 from worldcup2026 import WC2026_TEAMS, GROUPS, WCTeam
 
 NUM_SIMULATIONS = 10_000
-BASE_XG = 1.25  # average goals per team per game (fallback formula only)
-ELO_SCALE = 400  # Elo scale factor (fallback formula only)
 
-# The trained Poisson-regression goal model. When set (see set_goal_model),
-# expected goals come from the machine-learning model instead of the hand-coded
-# fallback formula below. Injected at runtime so this module has no hard
-# dependency on scikit-learn when used standalone.
-_GOAL_MODEL = None
+# The fitted Dixon-Coles model, injected at runtime by oracle.py so this module
+# has no hard dependency on scipy when imported on its own.
+_MODEL = None
+_RNG = np.random.default_rng()
 
 
 def set_goal_model(model) -> None:
-    """Install the trained Poisson regression as the expected-goals source."""
-    global _GOAL_MODEL
-    _GOAL_MODEL = model
+    """Install the fitted Dixon-Coles model as the goal engine."""
+    global _MODEL
+    _MODEL = model
 
 
-# ---------- Math helpers ----------
-
-def poisson_sample(lam: float) -> int:
-    """Knuth's algorithm for sampling a Poisson-distributed integer."""
-    if lam <= 0:
-        return 0
-    target = math.exp(-lam)
-    k = 0
-    p = 1.0
-    while True:
-        k += 1
-        p *= random.random()
-        if p <= target:
-            break
-    return k - 1
+# The model is keyed on CSV team names; map each WC display team to that key.
+def _key(team: WCTeam) -> str:
+    return team.csv_name
 
 
-def expected_goals(elo_a: float, elo_b: float) -> tuple[float, float]:
-    """Convert an Elo gap into expected goals for each side.
+def simulate_match(a: WCTeam, b: WCTeam) -> tuple[int, int]:
+    """Draw one neutral-venue scoreline (a_goals, b_goals) for the fixture."""
+    return _MODEL.sample_score(_RNG, _key(a), _key(b), neutral=True)
 
-    Uses the trained Poisson-regression model when one has been installed via
-    set_goal_model(); otherwise falls back to the original hand-coded formula.
+
+def match_probabilities(a: WCTeam, b: WCTeam) -> dict:
+    """Exact win/draw/loss probabilities, expected goals and modal scoreline.
+
+    Computed straight from the Dixon-Coles scoreline grid — no sampling needed.
     """
-    if _GOAL_MODEL is not None:
-        return _GOAL_MODEL.expected_goals(elo_a, elo_b)
-
-    diff = (elo_a - elo_b) / ELO_SCALE
-    mult = 10 ** diff
-    ratio = min(max(math.sqrt(mult), 0.33), 3)  # cap dominance
-    total = BASE_XG * 2  # share ~2.5 goals between the two teams
-    xg_a = (total * ratio) / (1 + ratio)
-    xg_b = total - xg_a
-    return xg_a, xg_b
-
-
-def simulate_match(elo_a: float, elo_b: float) -> tuple[int, int]:
-    xg_a, xg_b = expected_goals(elo_a, elo_b)
-    return poisson_sample(xg_a), poisson_sample(xg_b)
-
-
-def match_probabilities(elo_a: float, elo_b: float, trials: int = 50_000) -> dict:
-    """Monte Carlo win/draw/loss probabilities + xG + most likely scoreline."""
-    xg_a, xg_b = expected_goals(elo_a, elo_b)
-    win_a = draw = win_b = 0
-    # Track scorelines per outcome so the "most likely score" can reflect the
-    # favourite. The unconditional modal score is ~1-1 across a wide band of
-    # realistic xG (both 1-2 goals), since that's the joint mode of two
-    # independent Poissons — it hides which side is actually ahead.
-    score_freq: dict[str, dict[str, int]] = {"a": {}, "draw": {}, "b": {}}
-
-    for _ in range(trials):
-        ga = poisson_sample(xg_a)
-        gb = poisson_sample(xg_b)
-        key = f"{ga}-{gb}"
-        if ga > gb:
-            win_a += 1
-            bucket = score_freq["a"]
-        elif ga < gb:
-            win_b += 1
-            bucket = score_freq["b"]
-        else:
-            draw += 1
-            bucket = score_freq["draw"]
-        bucket[key] = bucket.get(key, 0) + 1
-
-    # Most likely scoreline *within the most likely outcome*.
-    outcome = max(("a", win_a), ("draw", draw), ("b", win_b), key=lambda kv: kv[1])[0]
-    bucket = score_freq[outcome]
-    most_likely = max(bucket.items(), key=lambda kv: kv[1])[0] if bucket else "1-1"
-
+    r = _MODEL.match_report(_key(a), _key(b), neutral=True)
+    sx, sy = r["score"]
     return {
-        "p_win_a": win_a / trials,
-        "p_draw": draw / trials,
-        "p_win_b": win_b / trials,
-        "xg_a": round(xg_a, 2),
-        "xg_b": round(xg_b, 2),
-        "most_likely_score": most_likely,
+        "p_win_a": r["p_home"],
+        "p_draw": r["p_draw"],
+        "p_win_b": r["p_away"],
+        "xg_a": round(r["xg_home"], 2),
+        "xg_b": round(r["xg_away"], 2),
+        "most_likely_score": f"{sx}-{sy}",
     }
 
 
@@ -165,11 +112,10 @@ def _assign_thirds(thirds: list[WCTeam]) -> list[WCTeam]:
 
 
 class _Standing:
-    __slots__ = ("team", "elo", "points", "gf", "ga")
+    __slots__ = ("team", "points", "gf", "ga")
 
-    def __init__(self, team: WCTeam, elo: float):
+    def __init__(self, team: WCTeam):
         self.team = team
-        self.elo = elo
         self.points = 0
         self.gf = 0
         self.ga = 0
@@ -179,13 +125,13 @@ class _Standing:
         return self.gf - self.ga
 
 
-def _simulate_group(group_teams: list[WCTeam], ratings: dict[str, float]) -> list[_Standing]:
-    standings = [_Standing(t, ratings.get(t.name, 1000)) for t in group_teams]
+def _simulate_group(group_teams: list[WCTeam]) -> list[_Standing]:
+    standings = [_Standing(t) for t in group_teams]
     n = len(standings)
     for i in range(n):
         for j in range(i + 1, n):
             a, b = standings[i], standings[j]
-            ga, gb = simulate_match(a.elo, b.elo)
+            ga, gb = simulate_match(a.team, b.team)
             a.gf += ga
             a.ga += gb
             b.gf += gb
@@ -201,18 +147,19 @@ def _simulate_group(group_teams: list[WCTeam], ratings: dict[str, float]) -> lis
     return standings
 
 
-def _simulate_knockout(elo_a: float, elo_b: float) -> bool:
-    """Return True if A advances. Ties go to a slightly-weighted penalty shootout."""
-    ga, gb = simulate_match(elo_a, elo_b)
+def _simulate_knockout(a: WCTeam, b: WCTeam) -> bool:
+    """Return True if A advances. Ties go to a strength-weighted shootout."""
+    ga, gb = simulate_match(a, b)
     if ga > gb:
         return True
     if gb > ga:
         return False
-    pen_edge = min(0.6, 0.5 + (elo_a - elo_b) / 2000)
-    return random.random() < pen_edge
+    # Coin-flip nudged by the two sides' overall strength (attack - defence).
+    edge_a = _MODEL.strength(_key(a)) - _MODEL.strength(_key(b))
+    return _RNG.random() < min(0.65, max(0.35, 0.5 + edge_a / 4))
 
 
-def run_simulations(ratings: dict[str, float], num_simulations: int = NUM_SIMULATIONS) -> dict:
+def run_simulations(num_simulations: int = NUM_SIMULATIONS) -> dict:
     names = [t.name for t in WC2026_TEAMS]
     result = {
         stage: {n: 0 for n in names}
@@ -230,7 +177,7 @@ def run_simulations(ratings: dict[str, float], num_simulations: int = NUM_SIMULA
     groups_index = {g: [t for t in WC2026_TEAMS if t.group == g] for g in GROUPS}
 
     for _ in range(num_simulations):
-        group_results = [_simulate_group(groups_index[g], ratings) for g in GROUPS]
+        group_results = [_simulate_group(groups_index[g]) for g in GROUPS]
 
         winners_by_group: dict[str, WCTeam] = {}
         runners_by_group: dict[str, WCTeam] = {}
@@ -271,8 +218,7 @@ def run_simulations(ratings: dict[str, float], num_simulations: int = NUM_SIMULA
             winners: list[WCTeam] = []
             for i in range(0, len(teams), 2):
                 a, b = teams[i], teams[i + 1]
-                a_wins = _simulate_knockout(ratings.get(a.name, 1000), ratings.get(b.name, 1000))
-                winners.append(a if a_wins else b)
+                winners.append(a if _simulate_knockout(a, b) else b)
             return winners
 
         r16 = knockout_round(pool)

@@ -1,6 +1,6 @@
-# Machine-learning goal model (Poisson regression) + its numeric backend.
-scikit-learn>=1.4
+# Dixon-Coles goal model: numeric backend + the maximum-likelihood optimiser.
 numpy>=1.24
+scipy>=1.10
 # Optional: TLS root certificates for downloading the historical results CSV
 # on macOS Python builds that ship without a usable CA bundle.
 certifi
