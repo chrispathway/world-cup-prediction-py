@@ -24,7 +24,8 @@ outcome with the home-win / draw / away-win probabilities (%); **Result** is a
 ✅ when the model's most likely outcome matched the actual winner (or a draw),
 ❌ otherwise.
 
-**Outcome accuracy so far: 38 / 60 = 63.3%** correct calls.
+**Outcome accuracy so far: 63 / 92 = 68.5%** correct calls, covering the full
+group stage, the Round of 32, and the first half of the Round of 16.
 
 | Match | Score | Model prediction (W / D / L %) | Result |
 |-------|:-----:|--------------------------------|:------:|
@@ -88,6 +89,38 @@ outcome with the home-win / draw / away-win probabilities (%); **Result** is a
 | 🇪🇨 Ecuador v Germany 🇩🇪 | 2–1 | Germany win (27 / 32 / 41) | ❌ |
 | 🇯🇵 Japan v Sweden 🇸🇪 | 1–1 | Japan win (44 / 29 / 27) | ❌ |
 | 🇹🇳 Tunisia v Netherlands 🇳🇱 | 1–3 | Netherlands win (14 / 26 / 59) | ✅ |
+| 🇪🇬 Egypt v Iran 🇮🇷 | 1–1 | Iran win (28 / 35 / 36) | ❌ |
+| 🇳🇿 New Zealand v Belgium 🇧🇪 | 1–5 | Belgium win (6 / 17 / 77) | ✅ |
+| 🇨🇻 Cape Verde v Saudi Arabia 🇸🇦 | 0–0 | Draw (29 / 36 / 35) | ✅ |
+| 🇺🇾 Uruguay v Spain 🇪🇸 | 0–1 | Spain win (18 / 30 / 51) | ✅ |
+| 🇳🇴 Norway v France 🇫🇷 | 1–4 | France win (23 / 27 / 50) | ✅ |
+| 🇸🇳 Senegal v Iraq 🇮🇶 | 5–0 | Senegal win (56 / 30 / 14) | ✅ |
+| 🇩🇿 Algeria v Austria 🇦🇹 | 3–3 | Austria win (31 / 30 / 39) | ❌ |
+| 🇯🇴 Jordan v Argentina 🇦🇷 | 1–3 | Argentina win (4 / 14 / 82) | ✅ |
+| 🇨🇴 Colombia v Portugal 🇵🇹 | 0–0 | Portugal win (31 / 30 / 39) | ❌ |
+| 🇨🇩 DR Congo v Uzbekistan 🇺🇿 | 3–1 | Draw (29 / 40 / 31) | ❌ |
+| 🇵🇦 Panama v England 🏴󠁧󠁢󠁥󠁮󠁧󠁿 | 0–2 | England win (4 / 14 / 82) | ✅ |
+| 🇭🇷 Croatia v Ghana 🇬🇭 | 2–1 | Croatia win (65 / 23 / 11) | ✅ |
+| 🇿🇦 South Africa v Canada 🇨🇦 | 0–1 | Canada win (21 / 31 / 48) | ✅ |
+| 🇧🇷 Brazil v Japan 🇯🇵 | 2–1 | Brazil win (53 / 29 / 19) | ✅ |
+| 🇩🇪 Germany v Paraguay 🇵🇾 | 1–1 | Germany win (55 / 27 / 18) | ❌ |
+| 🇳🇱 Netherlands v Morocco 🇲🇦 | 1–1 | Draw (34 / 34 / 31) | ✅ |
+| 🇨🇮 Ivory Coast v Norway 🇳🇴 | 1–2 | Norway win (22 / 30 / 49) | ✅ |
+| 🇫🇷 France v Sweden 🇸🇪 | 3–0 | France win (61 / 24 / 16) | ✅ |
+| 🇲🇽 Mexico v Ecuador 🇪🇨 | 2–0 | Draw (30 / 35 / 35) | ❌ |
+| 🏴󠁧󠁢󠁥󠁮󠁧󠁿 England v DR Congo 🇨🇩 | 2–1 | England win (66 / 26 / 8) | ✅ |
+| 🇧🇪 Belgium v Senegal 🇸🇳 | 3–2 | Belgium win (47 / 30 / 23) | ✅ |
+| 🇺🇸 USA v Bosnia & Herz. 🇧🇦 | 2–0 | USA win (58 / 25 / 17) | ✅ |
+| 🇪🇸 Spain v Austria 🇦🇹 | 3–0 | Spain win (62 / 24 / 14) | ✅ |
+| 🇵🇹 Portugal v Croatia 🇭🇷 | 2–1 | Portugal win (48 / 28 / 24) | ✅ |
+| 🇨🇭 Switzerland v Algeria 🇩🇿 | 2–0 | Switzerland win (45 / 28 / 26) | ✅ |
+| 🇦🇺 Australia v Egypt 🇪🇬 | 1–1 | Draw (36 / 36 / 28) | ✅ |
+| 🇦🇷 Argentina v Cape Verde 🇨🇻 | 3–2 | Argentina win (82 / 15 / 3) | ✅ |
+| 🇨🇴 Colombia v Ghana 🇬🇭 | 1–0 | Colombia win (73 / 19 / 8) | ✅ |
+| 🇨🇦 Canada v Morocco 🇲🇦 | 0–3 | Morocco win (17 / 34 / 49) | ✅ |
+| 🇵🇾 Paraguay v France 🇫🇷 | 0–1 | France win (14 / 28 / 57) | ✅ |
+| 🇧🇷 Brazil v Norway 🇳🇴 | 1–2 | Brazil win (54 / 26 / 20) | ❌ |
+| 🇲🇽 Mexico v England 🏴󠁧󠁢󠁥󠁮󠁧󠁿 | 2–3 | England win (18 / 29 / 53) | ✅ |
 
 ## Requirements
 
@@ -114,7 +147,7 @@ python evaluate_2026.py
 ```
 
 This scores the model out-of-sample against every 2026 World Cup match already
-played (accuracy, log-loss, Brier), then predicts three upcoming Round-of-16
+played (accuracy, log-loss, Brier), then predicts the four remaining Round-of-16
 fixtures. The model is trained only on data **before** the tournament, so none
 of the games it is scored on ever leaked into training.
 

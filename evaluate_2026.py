@@ -95,9 +95,10 @@ def backtest(model: DixonColesModel) -> None:
 # --------------------------------------------------------------------------
 
 R16_FIXTURES = [
-    ("France", "Paraguay"),
-    ("Brazil", "Norway"),
-    ("Mexico", "England"),
+    ("Portugal", "Spain"),
+    ("United States", "Belgium"),
+    ("Argentina", "Egypt"),
+    ("Switzerland", "Colombia"),
 ]
 
 
