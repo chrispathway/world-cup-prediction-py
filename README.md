@@ -10,24 +10,6 @@ simulation of the full 48-team tournament (10,000 runs by default) to estimate
 every team's odds of winning the title, reaching the final, and reaching the
 semis.
 
-Then it drops you into an interactive prompt where you can type two teams and
-get the head-to-head prediction: win/draw/loss probabilities, expected goals,
-and the most likely scoreline.
-
-
-## 🏆 The Final — 🇪🇸 Spain vs Argentina 🇦🇷
-
-The model makes the final a near coin-flip, with Argentina a whisker ahead:
-
-| Outcome | 🇪🇸 Spain win | Draw (90') | Argentina win 🇦🇷 |
-|---------|:------------:|:----------:|:----------------:|
-| **Probability** | 32.5% | 33.2% | **34.2%** |
-
-Expected goals: **Spain 0.93 – 0.96 Argentina**. Most likely scoreline: **0–0**
-(15.7%) — the two meanest defences left standing, separated by almost nothing.
-Among decisive outcomes it splits **Argentina 51% / Spain 49%**. A true toss-up.
-
-
 ## Live scorecard — model vs reality
 
 Every 2026 World Cup match played so far, scored against the model. The model
@@ -39,9 +21,7 @@ outcome with the home-win / draw / away-win probabilities (%); **Result** is a
 after 90 counts as a draw regardless of who won the shootout.
 
 **Outcome accuracy: 72 / 103 = 69.9%** correct calls, covering every match of
-the tournament bar the final still to be played — the full group stage, the
-Round of 32, the Round of 16, the quarter-finals, the semi-finals and the
-third-place play-off.
+the tournament played so far.
 
 | Match | Score | Model prediction (W / D / L %) | Result |
 |-------|:-----:|--------------------------------|:------:|
@@ -174,16 +154,7 @@ python evaluate_2026.py
 ```
 
 This scores the model out-of-sample against every 2026 World Cup match already
-played (accuracy, log-loss, Brier), then predicts the one fixture left — the
-final. The model is trained only on data **before** the tournament, so none of
-the games it is scored on ever leaked into training.
-
-## No data leakage
-
-Training is restricted to internationals from **11 June 2016 to 10 June 2026** —
-the decade ending the day before the 2026 finals kick off. The 2026 World Cup's
-own matches are excluded outright, so every 2026 game is a genuine out-of-sample
-prediction.
+played (accuracy, log-loss, Brier).
 
 ## The model in brief
 
