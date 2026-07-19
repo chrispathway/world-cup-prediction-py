@@ -5,7 +5,7 @@ Two jobs, both using a model that has never seen a single 2026 World Cup game:
 
   1. Predict every 2026 finals match already played and score those predictions
      against the real results (accuracy, log-loss, Brier, calibration).
-  2. Predict three upcoming, neutral-venue Round-of-16 fixtures.
+  2. Predict the one remaining, neutral-venue fixture: the final.
 
 For every fixture we print expected goals for both sides, the win/draw/loss
 probabilities and the single most likely scoreline.
@@ -91,14 +91,11 @@ def backtest(model: DixonColesModel) -> None:
 
 
 # --------------------------------------------------------------------------
-# Part 2 — predict the upcoming Round-of-16 fixtures (all neutral ground)
+# Part 2 — predict the remaining fixture: the final (neutral ground)
 # --------------------------------------------------------------------------
 
-R16_FIXTURES = [
-    ("Portugal", "Spain"),
-    ("United States", "Belgium"),
-    ("Argentina", "Egypt"),
-    ("Switzerland", "Colombia"),
+FINAL_FIXTURES = [
+    ("Spain", "Argentina"),
 ]
 
 
@@ -118,12 +115,12 @@ def predict_fixture(model: DixonColesModel, home: str, away: str) -> None:
     print()
 
 
-def predict_round_of_16(model: DixonColesModel) -> None:
+def predict_final(model: DixonColesModel) -> None:
     print("=" * 78)
-    print("  ROUND OF 16 — UPCOMING FIXTURES")
+    print("  THE FINAL — UPCOMING FIXTURE")
     print("=" * 78)
     print()
-    for home, away in R16_FIXTURES:
+    for home, away in FINAL_FIXTURES:
         predict_fixture(model, home, away)
 
 
@@ -133,7 +130,7 @@ def main() -> None:
     model = fit_dixon_coles(load_training_matches())
     print()
     backtest(model)
-    predict_round_of_16(model)
+    predict_final(model)
 
 
 if __name__ == "__main__":
